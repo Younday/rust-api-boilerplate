@@ -1,6 +1,5 @@
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 use utils::CargoEnv;
 
 pub struct Logger;

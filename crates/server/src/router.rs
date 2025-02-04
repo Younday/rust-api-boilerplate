@@ -1,5 +1,4 @@
-use std::time::Duration;
-
+use crate::api;
 use axum::{
     error_handling::HandleErrorLayer,
     http::{
@@ -11,14 +10,13 @@ use axum::{
 };
 use lazy_static::lazy_static;
 use serde_json::json;
+use std::time::Duration;
 use tower::{buffer::BufferLayer, limit::RateLimitLayer, ServiceBuilder};
-use tower_http::trace::TraceLayer;
 use tower_http::{
     cors::{Any, CorsLayer},
     services::{ServeDir, ServeFile},
+    trace::TraceLayer,
 };
-
-use crate::api;
 
 lazy_static! {
     static ref HTTP_TIMEOUT: u64 = 30;

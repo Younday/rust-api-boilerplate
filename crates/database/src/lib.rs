@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use std::sync::Arc;
 use tracing::info;
-
 use utils::{AppConfig, AppResult};
 
 #[derive(Clone, Debug)]
@@ -29,7 +27,7 @@ impl Database {
         let database_url = &config.postgres_uri;
         let pool = match PgPoolOptions::new()
             .max_connections(10)
-            .connect(&database_url)
+            .connect(database_url)
             .await
         {
             Ok(pool) => {

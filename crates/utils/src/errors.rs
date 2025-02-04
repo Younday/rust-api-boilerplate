@@ -1,16 +1,15 @@
 #![allow(dead_code)]
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fmt::Debug;
-
-use axum::extract::rejection::JsonRejection;
-use axum::response::Response;
-use axum::{http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::rejection::JsonRejection,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 use thiserror::Error;
-use tracing::debug;
-use tracing::log::error;
+use tracing::{debug, log::error};
 use validator::{ValidationErrors, ValidationErrorsKind};
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -71,7 +70,7 @@ impl AppError {
             if let ValidationErrorsKind::Field(field_meta) = error_kind.clone() {
                 for error in field_meta {
                     validation_errors
-                        .entry(Cow::from(field_property.clone()))
+                        .entry(field_property.clone())
                         .or_default()
                         .push(error.message.unwrap_or_else(|| {
                             let params: Vec<Cow<'static, str>> = error
