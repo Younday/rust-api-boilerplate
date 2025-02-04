@@ -1,0 +1,23 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+lazy_static.workspace = true
+listenfd = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror = "2.0.11"
+tokio = { workspace = true }
+tower.workspace = true
+tower-http.workspace = true
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+validator = "0.20.0"

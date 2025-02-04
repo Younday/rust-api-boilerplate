@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1.0.95"
+axum = "0.8.1"
+clap = {version = "4.5.27", features = ["derive", "env"] }
+dotenvy = "0.15.7"
+lazy_static = "1.5.0"
+listenfd = "1.0.2"
+serde = "1.0.217"
+serde_json = "1.0.138"
+thiserror = "2.0.11"
+sqlx = { version = "0.8.3", features = ["runtime-async-std-native-tls", "postgres", "chrono", "uuid"] }
+tokio = { version = "1.43.0", features = ["full"] }
+tower = { version = "0.5.2", features = ["timeout", "buffer", "limit"]}
+tower-http = { version = "0.6.2", features =  ["fs", "trace", "cors"] }
+tracing = "0.1.41"
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+validator = "0.20.0"
