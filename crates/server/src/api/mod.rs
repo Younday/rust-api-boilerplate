@@ -1,9 +1,11 @@
+pub mod health;
+pub mod users;
+
+use health::healthy;
 use axum::routing::{get, Router};
 
-pub async fn health() -> &'static str {
-    "🚀 Server is running! 🚀"
-}
-
 pub fn app() -> Router {
-    Router::new().route("/", get(health))
+    Router::new()
+    .route("/", get(healthy))
+    .nest("/users", users::UserController::app())
 }

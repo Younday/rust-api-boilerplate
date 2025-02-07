@@ -6,7 +6,7 @@ use axum::{
         Method, StatusCode,
     },
     response::IntoResponse,
-    BoxError, Json, Router,
+    BoxError, Extension, Json, Router,
 };
 use lazy_static::lazy_static;
 use serde_json::json;
@@ -18,6 +18,9 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+use super::services::Services;
+
+
 lazy_static! {
     static ref HTTP_TIMEOUT: u64 = 30;
 }
@@ -25,7 +28,7 @@ lazy_static! {
 #[allow(clippy::module_name_repetitions)]
 pub struct AppRouter;
 impl AppRouter {
-    pub fn init() -> Router {
+    pub fn init(services: Services) -> Router {
         let cors = CorsLayer::new()
             .allow_origin(Any)
             .allow_methods([
@@ -45,6 +48,7 @@ impl AppRouter {
             .layer(cors)
             .layer(
                 ServiceBuilder::new()
+                    .layer(Extension(services))
                     .layer(TraceLayer::new_for_http())
                     .layer(HandleErrorLayer::new(Self::handle_timeout_error))
                     .timeout(Duration::from_secs(*HTTP_TIMEOUT))

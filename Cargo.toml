@@ -4,7 +4,8 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.95"
-axum = "0.8.1"
+async-trait = "0.1.86"
+axum = { version = "0.8.1", features = ["macros"] }
 clap = {version = "4.5.27", features = ["derive", "env"] }
 dotenvy = "0.15.7"
 lazy_static = "1.5.0"
@@ -19,4 +20,4 @@ tower-http = { version = "0.6.2", features =  ["fs", "trace", "cors"] }
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-validator = "0.20.0"
+validator = {version = "0.20.0", features = ["derive"]}

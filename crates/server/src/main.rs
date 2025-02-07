@@ -2,6 +2,9 @@ pub(crate) mod api;
 pub(crate) mod app;
 pub(crate) mod logger;
 pub(crate) mod router;
+pub(crate) mod dtos;
+pub(crate) mod extractors;
+pub(crate) mod services;
 
 use anyhow::{Context, Result};
 use app::ApplicationServer;

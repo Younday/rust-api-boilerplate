@@ -7,6 +7,8 @@ use tokio::signal;
 use tracing::info;
 use utils::AppConfig;
 
+use crate::services::Services;
+
 pub struct ApplicationServer;
 impl ApplicationServer {
     pub async fn serve(config: Arc<AppConfig>) -> anyhow::Result<()> {
@@ -21,10 +23,11 @@ impl ApplicationServer {
             .local_addr()
             .context("Failed to get local address")?;
 
-        let _ = Database::new(config.clone()).await?;
+        let db = Database::new(config.clone()).await?;
+        let services = Services::new(db);
 
         info!("server has launched on {local_addr} 🚀");
-        let router = AppRouter::init();
+        let router = AppRouter::init(services);
         serve(tcp_listener, router)
             .with_graceful_shutdown(Self::shutdown_signal())
             .await
