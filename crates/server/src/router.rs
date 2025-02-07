@@ -1,3 +1,4 @@
+use super::services::Services;
 use crate::api;
 use axum::{
     error_handling::HandleErrorLayer,
@@ -17,9 +18,6 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-
-use super::services::Services;
-
 
 lazy_static! {
     static ref HTTP_TIMEOUT: u64 = 30;

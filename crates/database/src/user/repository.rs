@@ -1,33 +1,21 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use uuid::Uuid;
-
 use crate::{user::model::User, Database};
+use async_trait::async_trait;
+use std::sync::Arc;
 use utils::AppResult;
+use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 pub type DynUserRepository = Arc<dyn UserRepositoryTrait + Send + Sync>;
 
 #[async_trait]
 pub trait UserRepositoryTrait {
-    async fn create_user(
-        &self,
-        name: &str,
-        email: &str,
-        password: &str,
-    ) -> AppResult<User>;
+    async fn create_user(&self, name: &str, email: &str, password: &str) -> AppResult<User>;
 
     async fn get_user_by_id(&self, id: Uuid) -> AppResult<User>;
 
     async fn get_user_by_email(&self, email: &str) -> AppResult<User>;
 
-    async fn update_user(
-        &self,
-        id: Uuid,
-        name: &str,
-        email: &str,
-    ) -> AppResult<User>;
+    async fn update_user(&self, id: Uuid, name: &str, email: &str) -> AppResult<User>;
 
     async fn delete_user(&self, id: Uuid) -> AppResult<()>;
 
@@ -36,12 +24,7 @@ pub trait UserRepositoryTrait {
 
 #[async_trait]
 impl UserRepositoryTrait for Database {
-    async fn create_user(
-        &self,
-        name: &str,
-        email: &str,
-        password: &str,
-    ) -> AppResult<User> {
+    async fn create_user(&self, name: &str, email: &str, password: &str) -> AppResult<User> {
         let new_user = User {
             id: Uuid::new_v4(),
             name: name.to_string(),
@@ -77,12 +60,7 @@ impl UserRepositoryTrait for Database {
         Ok(user)
     }
 
-    async fn update_user(
-        &self,
-        id: Uuid,
-        name: &str,
-        email: &str,
-    ) -> AppResult<User> {
+    async fn update_user(&self, id: Uuid, name: &str, email: &str) -> AppResult<User> {
         let user = sqlx::query_as!(
             User,
             "UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING *",
@@ -97,15 +75,15 @@ impl UserRepositoryTrait for Database {
 
     async fn delete_user(&self, id: Uuid) -> AppResult<()> {
         sqlx::query!("DELETE FROM users WHERE id = $1", id)
-        .execute(&self.db)
-        .await?;
+            .execute(&self.db)
+            .await?;
         Ok(())
     }
 
     async fn get_all_users(&self) -> AppResult<Vec<User>> {
         let users = sqlx::query_as!(User, "SELECT * FROM users")
-        .fetch_all(&self.db)
-        .await?;
+            .fetch_all(&self.db)
+            .await?;
         Ok(users)
     }
 }

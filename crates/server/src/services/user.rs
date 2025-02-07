@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
+use crate::dtos::user_dto::SignUpUserDto;
 use async_trait::async_trait;
 use database::user::{model::User, repository::DynUserRepository};
+use std::sync::Arc;
 use tracing::{error, info};
 use utils::{AppError, AppResult};
-
-use crate::dtos::user_dto::SignUpUserDto;
 
 #[allow(clippy::module_name_repetitions)]
 pub type DynUserService = Arc<dyn UserServiceTrait + Send + Sync>;

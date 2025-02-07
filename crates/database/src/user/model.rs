@@ -1,9 +1,8 @@
-use serde::{Deserialize, Serialize};
 use chrono::serde::ts_seconds_option;
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use validator::Validate;
 use uuid::Uuid;
-
+use validator::Validate;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, Default, FromRow)]
 pub struct User {
@@ -15,5 +14,5 @@ pub struct User {
     #[validate(length(min = 6))]
     pub password: String,
     #[serde(with = "ts_seconds_option")]
-    pub created_at: Option<chrono::DateTime<chrono::Utc>>
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }

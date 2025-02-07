@@ -1,4 +1,4 @@
-use crate::{logger::Logger, router::AppRouter};
+use crate::{logger::Logger, router::AppRouter, services::Services};
 use anyhow::Context;
 use axum::serve;
 use database::Database;
@@ -6,8 +6,6 @@ use std::sync::Arc;
 use tokio::signal;
 use tracing::info;
 use utils::AppConfig;
-
-use crate::services::Services;
 
 pub struct ApplicationServer;
 impl ApplicationServer {

@@ -1,10 +1,9 @@
 pub mod user;
 
+use crate::services::user::{DynUserService, UserService};
 use database::Database;
 use std::sync::Arc;
 use tracing::info;
-
-use crate::services::user::{DynUserService, UserService};
 
 #[derive(Clone)]
 pub struct Services {

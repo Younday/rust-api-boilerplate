@@ -1,15 +1,13 @@
-use axum::{
-    routing::{get, post},
-    Extension, Json, Router,
-};
-
-use database::user::model::User;
-use utils::AppResult;
-
 use crate::{
     dtos::user_dto::SignUpUserDto, extractors::validation_extractor::ValidationExtractor,
     services::Services,
 };
+use axum::{
+    routing::{get, post},
+    Extension, Json, Router,
+};
+use database::user::model::User;
+use utils::AppResult;
 
 pub struct UserController;
 impl UserController {
