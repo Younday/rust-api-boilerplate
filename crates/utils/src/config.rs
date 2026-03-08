@@ -41,9 +41,7 @@ impl AppConfig {
     /// Returns an error string if production config fails validation.
     pub fn validate(&self) -> Result<(), String> {
         if matches!(self.cargo_env, CargoEnv::Production) && self.jwt_secret.len() < 32 {
-            return Err(
-                "JWT_SECRET must be at least 32 characters in production".to_string(),
-            );
+            return Err("JWT_SECRET must be at least 32 characters in production".to_string());
         }
         Ok(())
     }

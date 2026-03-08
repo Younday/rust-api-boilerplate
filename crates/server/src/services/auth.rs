@@ -111,21 +111,21 @@ impl AuthService {
             jti: Some(jti),
         };
 
-        let access_token = encode(&Header::default(), &access_claims, &encoding_key).map_err(
-            |e| {
+        let access_token =
+            encode(&Header::default(), &access_claims, &encoding_key).map_err(|e| {
                 error!("failed to encode access token: {e}");
                 AppError::InternalServerError
-            },
-        )?;
-        let refresh_token = encode(&Header::default(), &refresh_claims, &encoding_key).map_err(
-            |e| {
+            })?;
+        let refresh_token =
+            encode(&Header::default(), &refresh_claims, &encoding_key).map_err(|e| {
                 error!("failed to encode refresh token: {e}");
                 AppError::InternalServerError
-            },
-        )?;
+            })?;
 
         let expires_at = now + chrono::Duration::seconds(self.refresh_exp_secs);
-        self.refresh_token_repo.store(jti, user_id, expires_at).await?;
+        self.refresh_token_repo
+            .store(jti, user_id, expires_at)
+            .await?;
 
         Ok(AuthResponse {
             access_token,
@@ -300,9 +300,7 @@ mod tests {
     }
 
     #[async_trait::async_trait]
-    impl database::refresh_token::repository::RefreshTokenRepositoryTrait
-        for MockRefreshTokenRepo
-    {
+    impl database::refresh_token::repository::RefreshTokenRepositoryTrait for MockRefreshTokenRepo {
         async fn store(
             &self,
             jti: Uuid,
