@@ -11,9 +11,18 @@ pub struct LoginDto {
     pub password: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Validate, Default)]
 pub struct RefreshDto {
+    #[validate(length(min = 1))]
     pub refresh_token: String,
+}
+
+/// Discriminates access tokens from refresh tokens.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenType {
+    Access,
+    Refresh,
 }
 
 /// JWT payload — used for both access and refresh tokens.
@@ -25,8 +34,11 @@ pub struct TokenClaims {
     pub exp: usize,
     /// Issued at (Unix timestamp, seconds).
     pub iat: usize,
-    /// Either `"access"` or `"refresh"`.
-    pub token_type: String,
+    /// Discriminates access tokens from refresh tokens.
+    pub token_type: TokenType,
+    /// JWT ID — present only on refresh tokens, used for rotation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

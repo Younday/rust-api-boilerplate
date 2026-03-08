@@ -4,7 +4,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, Default, FromRow)]
+#[derive(Debug, Clone, Deserialize, Validate, Default, FromRow)]
 pub struct User {
     pub id: Uuid,
     #[validate(length(min = 1))]

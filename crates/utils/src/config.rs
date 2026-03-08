@@ -32,3 +32,19 @@ pub struct AppConfig {
     #[clap(long, env, default_value = "604800")]
     pub jwt_refresh_expiration_secs: i64,
 }
+
+impl AppConfig {
+    /// Validates security-sensitive config at startup.
+    /// Returns an error if the config is unsafe for the current environment.
+    ///
+    /// # Errors
+    /// Returns an error string if production config fails validation.
+    pub fn validate(&self) -> Result<(), String> {
+        if matches!(self.cargo_env, CargoEnv::Production) && self.jwt_secret.len() < 32 {
+            return Err(
+                "JWT_SECRET must be at least 32 characters in production".to_string(),
+            );
+        }
+        Ok(())
+    }
+}

@@ -6,13 +6,11 @@ use axum::{
 use utils::AppError;
 use uuid::Uuid;
 
-use crate::services::Services;
+use crate::{dtos::auth_dto::TokenType, services::Services};
 
 /// Injected by handlers that require an authenticated caller.
 /// Extracts and validates the `Authorization: Bearer <token>` header.
 pub struct AuthenticatedUser {
-    /// The authenticated user's ID — available to handlers for user-scoped logic.
-    #[allow(dead_code)]
     pub user_id: Uuid,
 }
 
@@ -39,7 +37,7 @@ where
 
         let claims = services.auth.verify_token(token)?;
 
-        if claims.token_type != "access" {
+        if claims.token_type != TokenType::Access {
             return Err(AppError::InvalidToken(
                 "expected an access token".to_string(),
             ));

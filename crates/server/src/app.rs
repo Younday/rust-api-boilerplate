@@ -15,6 +15,10 @@ impl ApplicationServer {
     pub async fn serve(config: Arc<AppConfig>) -> anyhow::Result<()> {
         let _guard = Logger::init(config.cargo_env);
 
+        config
+            .validate()
+            .map_err(|e| anyhow::anyhow!("config validation failed: {e}"))?;
+
         let address = format!("{}:{}", config.app_host, config.app_port);
         let tcp_listener = tokio::net::TcpListener::bind(address)
             .await

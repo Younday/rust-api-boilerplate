@@ -39,7 +39,7 @@ impl AuthController {
 
     pub async fn refresh(
         Extension(services): Extension<Services>,
-        Json(dto): Json<RefreshDto>,
+        ValidationExtractor(dto): ValidationExtractor<RefreshDto>,
     ) -> AppResult<Json<AuthResponse>> {
         let response = services.auth.refresh_token(dto).await?;
         Ok(Json(response))

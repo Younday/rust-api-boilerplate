@@ -6,14 +6,16 @@ use argon2::{
 };
 use async_trait::async_trait;
 use chrono::Utc;
-use database::user::repository::DynUserRepository;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use tracing::{error, info};
+use database::{
+    refresh_token::repository::DynRefreshTokenRepository, user::repository::DynUserRepository,
+};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use tracing::{error, info, warn};
 use utils::{AppError, AppResult};
 use uuid::Uuid;
 
 use crate::dtos::{
-    auth_dto::{AuthResponse, LoginDto, RefreshDto, TokenClaims},
+    auth_dto::{AuthResponse, LoginDto, RefreshDto, TokenClaims, TokenType},
     user_dto::SignUpUserDto,
 };
 
@@ -32,6 +34,7 @@ pub trait AuthServiceTrait {
 #[derive(Clone)]
 pub struct AuthService {
     repository: DynUserRepository,
+    refresh_token_repo: DynRefreshTokenRepository,
     jwt_secret: String,
     access_exp_secs: i64,
     refresh_exp_secs: i64,
@@ -40,12 +43,14 @@ pub struct AuthService {
 impl AuthService {
     pub fn new(
         repository: DynUserRepository,
+        refresh_token_repo: DynRefreshTokenRepository,
         jwt_secret: String,
         access_exp_secs: i64,
         refresh_exp_secs: i64,
     ) -> Self {
         Self {
             repository,
+            refresh_token_repo,
             jwt_secret,
             access_exp_secs,
             refresh_exp_secs,
@@ -73,31 +78,54 @@ impl AuthService {
             .map_err(|_| AppError::Unauthorized)
     }
 
-    fn generate_tokens(&self, user_id: Uuid) -> AppResult<AuthResponse> {
-        let now = Utc::now().timestamp();
+    /// Returns a stable dummy hash used for timing equalization during login
+    /// when no matching user exists — prevents email enumeration via timing.
+    fn dummy_hash() -> &'static str {
+        use std::sync::OnceLock;
+        static DUMMY: OnceLock<String> = OnceLock::new();
+        DUMMY.get_or_init(|| {
+            Self::hash_password("dummy_timing_password_placeholder_xyz!")
+                .expect("dummy hash must succeed")
+        })
+    }
+
+    async fn generate_tokens(&self, user_id: Uuid) -> AppResult<AuthResponse> {
+        let now = Utc::now();
+        let now_ts = now.timestamp();
         let encoding_key = EncodingKey::from_secret(self.jwt_secret.as_bytes());
+
+        let jti = Uuid::new_v4();
 
         let access_claims = TokenClaims {
             sub: user_id,
-            exp: (now + self.access_exp_secs) as usize,
-            iat: now as usize,
-            token_type: "access".to_string(),
+            exp: usize::try_from(now_ts + self.access_exp_secs).unwrap_or(usize::MAX),
+            iat: usize::try_from(now_ts).unwrap_or(0),
+            token_type: TokenType::Access,
+            jti: None,
         };
         let refresh_claims = TokenClaims {
             sub: user_id,
-            exp: (now + self.refresh_exp_secs) as usize,
-            iat: now as usize,
-            token_type: "refresh".to_string(),
+            exp: usize::try_from(now_ts + self.refresh_exp_secs).unwrap_or(usize::MAX),
+            iat: usize::try_from(now_ts).unwrap_or(0),
+            token_type: TokenType::Refresh,
+            jti: Some(jti),
         };
 
-        let access_token =
-            encode(&Header::default(), &access_claims, &encoding_key).map_err(|e| {
-                AppError::InternalServerErrorWithContext(format!("token encode error: {e}"))
-            })?;
-        let refresh_token =
-            encode(&Header::default(), &refresh_claims, &encoding_key).map_err(|e| {
-                AppError::InternalServerErrorWithContext(format!("token encode error: {e}"))
-            })?;
+        let access_token = encode(&Header::default(), &access_claims, &encoding_key).map_err(
+            |e| {
+                error!("failed to encode access token: {e}");
+                AppError::InternalServerError
+            },
+        )?;
+        let refresh_token = encode(&Header::default(), &refresh_claims, &encoding_key).map_err(
+            |e| {
+                error!("failed to encode refresh token: {e}");
+                AppError::InternalServerError
+            },
+        )?;
+
+        let expires_at = now + chrono::Duration::seconds(self.refresh_exp_secs);
+        self.refresh_token_repo.store(jti, user_id, expires_at).await?;
 
         Ok(AuthResponse {
             access_token,
@@ -121,20 +149,21 @@ impl AuthServiceTrait for AuthService {
             .ok_or_else(|| AppError::BadRequest("password is required".to_string()))?;
 
         if self.repository.get_user_by_email(&email).await?.is_some() {
-            error!("registration attempt with duplicate email: {email}");
+            warn!("registration attempt with duplicate email");
             return Err(AppError::Conflict(format!("email {email} is taken")));
         }
 
         let hash = tokio::task::spawn_blocking(move || Self::hash_password(&password))
             .await
             .map_err(|e| {
-                AppError::InternalServerErrorWithContext(format!("spawn_blocking error: {e}"))
+                error!("spawn_blocking error: {e}");
+                AppError::InternalServerError
             })??;
 
         let user = self.repository.create_user(&name, &email, &hash).await?;
         info!("registered new user: {}", user.id);
 
-        self.generate_tokens(user.id)
+        self.generate_tokens(user.id).await
     }
 
     async fn login(&self, dto: LoginDto) -> AppResult<AuthResponse> {
@@ -145,43 +174,65 @@ impl AuthServiceTrait for AuthService {
             .password
             .ok_or_else(|| AppError::BadRequest("password is required".to_string()))?;
 
-        let user = self
-            .repository
-            .get_user_by_email(&email)
-            .await?
-            .ok_or(AppError::Unauthorized)?;
+        let user_opt = self.repository.get_user_by_email(&email).await?;
 
-        let hash = user.password.clone();
-        tokio::task::spawn_blocking(move || Self::verify_password(&hash, &password))
-            .await
-            .map_err(|e| {
-                AppError::InternalServerErrorWithContext(format!("spawn_blocking error: {e}"))
-            })??;
+        if let Some(user) = user_opt {
+            let hash = user.password.clone();
+            tokio::task::spawn_blocking(move || Self::verify_password(&hash, &password))
+                .await
+                .map_err(|e| {
+                    error!("spawn_blocking error: {e}");
+                    AppError::InternalServerError
+                })??;
 
-        info!("user {} logged in", user.id);
-        self.generate_tokens(user.id)
+            info!("user {} logged in", user.id);
+            self.generate_tokens(user.id).await
+        } else {
+            // Run a dummy verify to equalize timing and prevent email enumeration.
+            let dummy = Self::dummy_hash().to_string();
+            let _ =
+                tokio::task::spawn_blocking(move || Self::verify_password(&dummy, &password)).await;
+            Err(AppError::Unauthorized)
+        }
     }
 
     async fn refresh_token(&self, dto: RefreshDto) -> AppResult<AuthResponse> {
         let claims = self.verify_token(&dto.refresh_token)?;
 
-        if claims.token_type != "refresh" {
+        if claims.token_type != TokenType::Refresh {
             return Err(AppError::InvalidToken(
                 "expected a refresh token".to_string(),
+            ));
+        }
+
+        let jti = claims
+            .jti
+            .ok_or_else(|| AppError::InvalidToken("missing jti".to_string()))?;
+
+        // Revoke the JTI atomically — fails if already used or expired.
+        let revoked = self.refresh_token_repo.revoke(jti).await?;
+        if !revoked {
+            return Err(AppError::InvalidToken(
+                "refresh token has already been used or has expired".to_string(),
             ));
         }
 
         // Confirm the user still exists.
         self.repository.get_user_by_id(claims.sub).await?;
 
-        self.generate_tokens(claims.sub)
+        self.generate_tokens(claims.sub).await
     }
 
     fn verify_token(&self, token: &str) -> AppResult<TokenClaims> {
         let decoding_key = DecodingKey::from_secret(self.jwt_secret.as_bytes());
-        decode::<TokenClaims>(token, &decoding_key, &Validation::default())
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.set_required_spec_claims(&["exp", "sub"]);
+        decode::<TokenClaims>(token, &decoding_key, &validation)
             .map(|data| data.claims)
-            .map_err(|e| AppError::InvalidToken(format!("invalid token: {e}")))
+            .map_err(|e| {
+                error!("token verification failed: {e}");
+                AppError::InvalidToken("invalid token".to_string())
+            })
     }
 }
 
@@ -190,21 +241,19 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use database::user::{model::User, repository::UserRepositoryTrait};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use uuid::Uuid;
 
     // ---------------------------------------------------------------------------
-    // Minimal mock repository
+    // Minimal mock repositories
     // ---------------------------------------------------------------------------
 
-    struct MockRepo {
-        /// The user returned by `get_user_by_email` / `get_user_by_id`.
-        /// `None` simulates "user not found".
+    struct MockUserRepo {
         user: Option<User>,
     }
 
     #[async_trait::async_trait]
-    impl UserRepositoryTrait for MockRepo {
+    impl UserRepositoryTrait for MockUserRepo {
         async fn create_user(&self, name: &str, email: &str, password: &str) -> AppResult<User> {
             Ok(User {
                 id: Uuid::new_v4(),
@@ -238,13 +287,45 @@ mod tests {
         }
     }
 
+    struct MockRefreshTokenRepo {
+        stored: Mutex<std::collections::HashSet<Uuid>>,
+    }
+
+    impl MockRefreshTokenRepo {
+        fn new() -> Self {
+            Self {
+                stored: Mutex::new(std::collections::HashSet::new()),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl database::refresh_token::repository::RefreshTokenRepositoryTrait
+        for MockRefreshTokenRepo
+    {
+        async fn store(
+            &self,
+            jti: Uuid,
+            _user_id: Uuid,
+            _expires_at: chrono::DateTime<Utc>,
+        ) -> AppResult<()> {
+            self.stored.lock().unwrap().insert(jti);
+            Ok(())
+        }
+
+        async fn revoke(&self, jti: Uuid) -> AppResult<bool> {
+            Ok(self.stored.lock().unwrap().remove(&jti))
+        }
+    }
+
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
 
     fn make_service(user: Option<User>) -> AuthService {
         AuthService::new(
-            Arc::new(MockRepo { user }),
+            Arc::new(MockUserRepo { user }),
+            Arc::new(MockRefreshTokenRepo::new()),
             "test-secret".to_string(),
             3600,
             604800,
@@ -292,20 +373,21 @@ mod tests {
     async fn access_token_claims_are_correct() {
         let svc = make_service(None);
         let id = Uuid::new_v4();
-        let tokens = svc.generate_tokens(id).unwrap();
+        let tokens = svc.generate_tokens(id).await.unwrap();
         let claims = svc.verify_token(&tokens.access_token).unwrap();
         assert_eq!(claims.sub, id);
-        assert_eq!(claims.token_type, "access");
+        assert_eq!(claims.token_type, TokenType::Access);
     }
 
     #[tokio::test]
     async fn refresh_token_claims_are_correct() {
         let svc = make_service(None);
         let id = Uuid::new_v4();
-        let tokens = svc.generate_tokens(id).unwrap();
+        let tokens = svc.generate_tokens(id).await.unwrap();
         let claims = svc.verify_token(&tokens.refresh_token).unwrap();
         assert_eq!(claims.sub, id);
-        assert_eq!(claims.token_type, "refresh");
+        assert_eq!(claims.token_type, TokenType::Refresh);
+        assert!(claims.jti.is_some(), "refresh token must carry a jti");
     }
 
     #[test]
@@ -317,15 +399,44 @@ mod tests {
 
     #[test]
     fn verify_token_signed_with_wrong_secret_returns_error() {
-        let svc = make_service(None);
+        let _svc = make_service(None);
         let other = AuthService::new(
-            Arc::new(MockRepo { user: None }),
+            Arc::new(MockUserRepo { user: None }),
+            Arc::new(MockRefreshTokenRepo::new()),
             "different-secret".to_string(),
             3600,
             604800,
         );
-        let tokens = svc.generate_tokens(Uuid::new_v4()).unwrap();
-        let err = other.verify_token(&tokens.access_token).unwrap_err();
+        let id = Uuid::new_v4();
+        // Can't call generate_tokens here (async) — build a token manually.
+        let encoding_key = EncodingKey::from_secret(b"test-secret");
+        let claims = TokenClaims {
+            sub: id,
+            exp: usize::MAX,
+            iat: 0,
+            token_type: TokenType::Access,
+            jti: None,
+        };
+        let token =
+            encode(&Header::default(), &claims, &encoding_key).expect("encoding must succeed");
+        let err = other.verify_token(&token).unwrap_err();
+        assert!(matches!(err, AppError::InvalidToken(_)));
+    }
+
+    #[test]
+    fn verify_expired_token_returns_invalid_token_error() {
+        let svc = make_service(None);
+        let encoding_key = EncodingKey::from_secret(b"test-secret");
+        let claims = TokenClaims {
+            sub: Uuid::new_v4(),
+            exp: 0, // already expired
+            iat: 0,
+            token_type: TokenType::Access,
+            jti: None,
+        };
+        let token =
+            encode(&Header::default(), &claims, &encoding_key).expect("encoding must succeed");
+        let err = svc.verify_token(&token).unwrap_err();
         assert!(matches!(err, AppError::InvalidToken(_)));
     }
 
@@ -414,7 +525,7 @@ mod tests {
             created_at: Some(Utc::now()),
         };
         let svc = make_service(Some(user));
-        let tokens = svc.generate_tokens(user_id).unwrap();
+        let tokens = svc.generate_tokens(user_id).await.unwrap();
         let dto = crate::dtos::auth_dto::RefreshDto {
             refresh_token: tokens.refresh_token,
         };
@@ -427,12 +538,37 @@ mod tests {
     #[tokio::test]
     async fn refresh_with_access_token_returns_invalid_token_error() {
         let svc = make_service(None);
-        let tokens = svc.generate_tokens(Uuid::new_v4()).unwrap();
+        let tokens = svc.generate_tokens(Uuid::new_v4()).await.unwrap();
         let dto = crate::dtos::auth_dto::RefreshDto {
             // Intentionally passing an access token where a refresh token is expected.
             refresh_token: tokens.access_token,
         };
         let err = svc.refresh_token(dto).await.unwrap_err();
+        assert!(matches!(err, AppError::InvalidToken(_)));
+    }
+
+    #[tokio::test]
+    async fn refresh_token_rotation_prevents_reuse() {
+        let user_id = Uuid::new_v4();
+        let user = User {
+            id: user_id,
+            name: "Test".to_string(),
+            email: "test@example.com".to_string(),
+            password: "hash".to_string(),
+            created_at: Some(Utc::now()),
+        };
+        let svc = make_service(Some(user));
+        let tokens = svc.generate_tokens(user_id).await.unwrap();
+        let dto = crate::dtos::auth_dto::RefreshDto {
+            refresh_token: tokens.refresh_token.clone(),
+        };
+        // First use should succeed.
+        svc.refresh_token(dto).await.unwrap();
+        // Second use with the same token must be rejected.
+        let dto2 = crate::dtos::auth_dto::RefreshDto {
+            refresh_token: tokens.refresh_token,
+        };
+        let err = svc.refresh_token(dto2).await.unwrap_err();
         assert!(matches!(err, AppError::InvalidToken(_)));
     }
 }
