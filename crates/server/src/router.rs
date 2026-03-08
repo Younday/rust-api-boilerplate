@@ -21,6 +21,7 @@ use tower_http::{
 const HTTP_TIMEOUT: u64 = 30;
 
 #[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
 pub struct AppRouter;
 impl AppRouter {
     pub fn init(services: Services) -> Router {

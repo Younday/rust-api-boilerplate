@@ -9,6 +9,7 @@ use axum::{
 use database::user::model::User;
 use utils::AppResult;
 
+#[derive(Debug)]
 pub struct UserController;
 impl UserController {
     pub fn app() -> Router {

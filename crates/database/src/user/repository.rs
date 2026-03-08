@@ -1,8 +1,10 @@
-use crate::{user::model::User, Database};
-use async_trait::async_trait;
 use std::sync::Arc;
+
+use async_trait::async_trait;
 use utils::AppResult;
 use uuid::Uuid;
+
+use crate::{user::model::User, Database};
 
 #[allow(clippy::module_name_repetitions)]
 pub type DynUserRepository = Arc<dyn UserRepositoryTrait + Send + Sync>;

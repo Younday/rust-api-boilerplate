@@ -1,12 +1,15 @@
-use crate::{logger::Logger, router::AppRouter, services::Services};
+use std::sync::Arc;
+
 use anyhow::Context;
 use axum::serve;
 use database::Database;
-use std::sync::Arc;
 use tokio::signal;
 use tracing::info;
 use utils::AppConfig;
 
+use crate::{logger::Logger, router::AppRouter, services::Services};
+
+#[derive(Debug)]
 pub struct ApplicationServer;
 impl ApplicationServer {
     pub async fn serve(config: Arc<AppConfig>) -> anyhow::Result<()> {
@@ -38,15 +41,19 @@ impl ApplicationServer {
         let ctrl_c = async {
             signal::ctrl_c()
                 .await
-                .expect("Failed to install Ctrl+C handler");
+                .unwrap_or_else(|e| tracing::error!("Failed to install Ctrl+C handler: {e}"));
         };
 
         #[cfg(unix)]
         let terminate = async {
-            signal::unix::signal(signal::unix::SignalKind::terminate())
-                .expect("Failed to install signal handler")
-                .recv()
-                .await;
+            match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+                Ok(mut stream) => {
+                    stream.recv().await;
+                }
+                Err(e) => {
+                    tracing::error!("Failed to install signal handler: {e}");
+                }
+            }
         };
 
         #[cfg(not(unix))]

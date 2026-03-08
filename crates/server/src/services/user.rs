@@ -1,9 +1,11 @@
-use crate::dtos::user_dto::SignUpUserDto;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use database::user::{model::User, repository::DynUserRepository};
-use std::sync::Arc;
 use tracing::{error, info};
 use utils::{AppError, AppResult};
+
+use crate::dtos::user_dto::SignUpUserDto;
 
 #[allow(clippy::module_name_repetitions)]
 pub type DynUserService = Arc<dyn UserServiceTrait + Send + Sync>;
@@ -32,9 +34,15 @@ impl UserService {
 #[async_trait]
 impl UserServiceTrait for UserService {
     async fn signup_user(&self, request: SignUpUserDto) -> AppResult<User> {
-        let email = request.email.unwrap();
-        let name = request.name.unwrap();
-        let password = request.password.unwrap();
+        let email = request
+            .email
+            .ok_or_else(|| AppError::BadRequest("email is required".to_string()))?;
+        let name = request
+            .name
+            .ok_or_else(|| AppError::BadRequest("name is required".to_string()))?;
+        let password = request
+            .password
+            .ok_or_else(|| AppError::BadRequest("password is required".to_string()))?;
 
         if self.repository.get_user_by_email(&email).await?.is_some() {
             error!("User {:?} already exists", email);

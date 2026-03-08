@@ -1,7 +1,8 @@
 pub mod user;
 
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::sync::Arc;
+
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tracing::info;
 use utils::{AppConfig, AppResult};
 
@@ -23,24 +24,19 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// This function will return an error if the `MongoDB` client cannot be initialized
-    /// or if the specified database or collection cannot be accessed.
+    /// This function will return an error if the PostgreSQL connection pool cannot be initialized.
     pub async fn new(config: Arc<AppConfig>) -> AppResult<Self> {
         let database_url = &config.postgres_uri;
-        let pool = match PgPoolOptions::new()
+        let pool = PgPoolOptions::new()
             .max_connections(10)
             .connect(database_url)
             .await
-        {
-            Ok(pool) => {
-                info!("✅Connection to the database is successful!");
-                pool
-            }
-            Err(err) => {
-                info!("🔥 Failed to connect to the database: {:?}", err);
-                std::process::exit(1);
-            }
-        };
+            .map_err(|err| {
+                tracing::error!("🔥 Failed to connect to the database: {:?}", err);
+                err
+            })?;
+
+        info!("✅Connection to the database is successful!");
         Ok(Database { db: pool })
     }
 }

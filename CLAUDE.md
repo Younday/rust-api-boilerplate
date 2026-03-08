@@ -114,6 +114,32 @@ rust-api-boilerplate/
 
 ## Architecture & Conventions
 
+### Rust Conventions
+
+- Use `thiserror` for library errors, `anyhow` only in binary crates or tests
+- No `.unwrap()` or `.expect()` in production code — propagate errors with `?`
+- Prefer `&str` over `String` in function parameters; return `String` when ownership transfers
+- Use `clippy` with `#![deny(clippy::all, clippy::pedantic)]` — fix all warnings
+- Derive `Debug` on all public types; derive `Clone`, `PartialEq` only when needed
+- No `unsafe` blocks unless justified with a `// SAFETY:` comment
+
+### Database
+
+- All queries use SQLx `query!` or `query_as!` macros — compile-time verified against the schema
+- Migrations in `migrations/` using `sqlx migrate` — never alter the database directly
+- Use `sqlx::Pool<Postgres>` as shared state — never create connections per request
+- All queries use parameterized placeholders (`$1`, `$2`) — never string formatting
+
+```rust
+// BAD: String interpolation (SQL injection risk)
+let q = format!("SELECT * FROM users WHERE id = '{}'", id);
+
+// GOOD: Parameterized query, compile-time checked
+let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", id)
+    .fetch_optional(&pool)
+    .await?;
+```
+
 ### Layer model
 
 ```
@@ -194,6 +220,19 @@ Requires a running Postgres. Set `DATABASE_URL` in your env.
 ### API / integration layer
 
 Add tests to `crates/server/tests/api.rs`. Use `axum_test` or build an `axum::Router` directly and call it via `tower::ServiceExt::oneshot`.
+
+- Unit tests in `#[cfg(test)]` modules within each source file
+- Integration tests in `tests/` directory using a real PostgreSQL (Testcontainers or Docker)
+- Use `#[sqlx::test]` for database tests with automatic migration and rollback
+- Mock external services with `mockall` or `wiremock`
+
+## Code Style
+
+- Max line length: 100 characters (enforced by rustfmt)
+- Group imports: `std`, external crates, `crate`/`super` — separated by blank lines
+- Modules: one file per module, `mod.rs` only for re-exports
+- Types: PascalCase, functions/variables: snake_case, constants: UPPER_SNAKE_CASE
+
 
 ### Run all tests
 

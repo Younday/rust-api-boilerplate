@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use utils::AppError;
 use validator::Validate;
 
+#[derive(Debug)]
 pub struct ValidationExtractor<T>(pub T);
 
 impl<T, S> FromRequest<S> for ValidationExtractor<T>

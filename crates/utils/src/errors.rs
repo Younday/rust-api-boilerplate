@@ -55,8 +55,6 @@ pub enum AppError {
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
     #[error(transparent)]
-    AnyhowError(#[from] anyhow::Error),
-    #[error(transparent)]
     PoolTimedOut(#[from] sqlx::Error),
 }
 
