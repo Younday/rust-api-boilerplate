@@ -55,7 +55,7 @@ git clone https://github.com/your-username/rust-api-boilerplate.git
 cd rust-api-boilerplate
 
 # 2. Configure environment
-cp .env .env.local   # edit postgres credentials if needed
+cp .env.example .env   # edit postgres credentials if needed
 
 # 3. Start Postgres
 make db
