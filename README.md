@@ -2,7 +2,7 @@
 
 > A production-ready REST API starter built with Axum and PostgreSQL.
 
-[![CI](https://github.com/your-username/rust-api-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/rust-api-boilerplate/actions/workflows/ci.yml)
+[![CI](https://github.com/Younday/rust-api-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/Younday/rust-api-boilerplate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
