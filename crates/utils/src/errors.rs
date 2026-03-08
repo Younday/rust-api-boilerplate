@@ -36,6 +36,8 @@ pub enum AppError {
     BadRequest(String),
     #[error("authentication is required to access this resource")]
     Unauthorized,
+    #[error("{0}")]
+    InvalidToken(String),
     #[error("user does not have privilege to access this resource")]
     Forbidden,
     #[error("unexpected error has occurred")]
@@ -110,6 +112,7 @@ impl IntoResponse for AppError {
             Self::PreconditionFailed(err) => (StatusCode::PRECONDITION_FAILED, err),
             Self::BadRequest(err) => (StatusCode::BAD_REQUEST, err),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, Self::Unauthorized.to_string()),
+            Self::InvalidToken(err) => (StatusCode::UNAUTHORIZED, err),
             Self::Forbidden => (StatusCode::FORBIDDEN, Self::Forbidden.to_string()),
             Self::AxumJsonRejection(err) => (StatusCode::BAD_REQUEST, err.body_text()),
             _ => (

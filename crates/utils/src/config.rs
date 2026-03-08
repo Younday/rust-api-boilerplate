@@ -22,4 +22,13 @@ pub struct AppConfig {
         default_value = "postgresql://admin:admin@localhost:5432/rust?schema=public"
     )]
     pub postgres_uri: String,
+
+    #[clap(long, env)]
+    pub jwt_secret: String,
+
+    #[clap(long, env, default_value = "3600")]
+    pub jwt_access_expiration_secs: i64,
+
+    #[clap(long, env, default_value = "604800")]
+    pub jwt_refresh_expiration_secs: i64,
 }

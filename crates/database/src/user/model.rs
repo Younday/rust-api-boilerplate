@@ -16,3 +16,24 @@ pub struct User {
     #[serde(with = "ts_seconds_option")]
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
+
+/// Public user representation — never includes the password field.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    #[serde(with = "ts_seconds_option")]
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl From<User> for UserResponse {
+    fn from(user: User) -> Self {
+        Self {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            created_at: user.created_at,
+        }
+    }
+}

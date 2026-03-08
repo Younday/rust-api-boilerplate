@@ -25,7 +25,7 @@ impl ApplicationServer {
             .context("Failed to get local address")?;
 
         let db = Database::new(config.clone()).await?;
-        let services = Services::new(db);
+        let services = Services::new(db, config.clone());
 
         info!("server has launched on {local_addr} 🚀");
         let router = AppRouter::init(services);

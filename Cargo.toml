@@ -4,6 +4,8 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.95"
+argon2 = "0.5"
+jsonwebtoken = "9"
 async-trait = "0.1.86"
 axum = { version = "0.8.1", features = ["macros"] }
 clap = {version = "4.5.27", features = ["derive", "env"] }
@@ -13,7 +15,7 @@ listenfd = "1.0.2"
 serde = "1.0.217"
 serde_json = "1.0.138"
 thiserror = "2.0.11"
-sqlx = { version = "0.8.3", features = ["runtime-async-std-native-tls", "postgres", "chrono", "uuid"] }
+sqlx = { version = "0.8.3", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid"] }
 tokio = { version = "1.43.0", features = ["full"] }
 tower = { version = "0.5.2", features = ["timeout", "buffer", "limit"]}
 tower-http = { version = "0.6.2", features =  ["fs", "trace", "cors"] }
