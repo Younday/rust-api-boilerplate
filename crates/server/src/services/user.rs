@@ -36,9 +36,7 @@ impl UserServiceTrait for UserService {
         let name = request.name.unwrap();
         let password = request.password.unwrap();
 
-        let existing_user = self.repository.get_user_by_email(&email).await?;
-
-        if Some(existing_user).is_some() {
+        if self.repository.get_user_by_email(&email).await?.is_some() {
             error!("User {:?} already exists", email);
             return Err(AppError::Conflict(format!("email {email} is taken")));
         }

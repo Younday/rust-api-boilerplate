@@ -9,7 +9,6 @@ use axum::{
     response::IntoResponse,
     BoxError, Extension, Json, Router,
 };
-use lazy_static::lazy_static;
 use serde_json::json;
 use std::time::Duration;
 use tower::{buffer::BufferLayer, limit::RateLimitLayer, ServiceBuilder};
@@ -19,9 +18,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-lazy_static! {
-    static ref HTTP_TIMEOUT: u64 = 30;
-}
+const HTTP_TIMEOUT: u64 = 30;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AppRouter;
@@ -49,7 +46,7 @@ impl AppRouter {
                     .layer(Extension(services))
                     .layer(TraceLayer::new_for_http())
                     .layer(HandleErrorLayer::new(Self::handle_timeout_error))
-                    .timeout(Duration::from_secs(*HTTP_TIMEOUT))
+                    .timeout(Duration::from_secs(HTTP_TIMEOUT))
                     .layer(BufferLayer::new(1024))
                     .layer(RateLimitLayer::new(5, Duration::from_secs(1))),
             )
@@ -76,7 +73,7 @@ impl AppRouter {
                     "error":
                         format!(
                             "request took longer than the configured {} second timeout",
-                            *HTTP_TIMEOUT
+                            HTTP_TIMEOUT
                         )
                 })),
             )

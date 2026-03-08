@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 use thiserror::Error;
-use tracing::{debug, log::error};
+use tracing::debug;
 use validator::{ValidationErrors, ValidationErrorsKind};
 
 pub type AppResult<T> = Result<T, AppError>;

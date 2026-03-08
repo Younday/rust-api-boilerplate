@@ -24,7 +24,11 @@ async fn get_user_by_email(pool: PgPool) -> sqlx::Result<()> {
         .create_user("name", "email@email.com", "password123")
         .await
         .unwrap();
-    let user_by_email = database.get_user_by_email("email@email.com").await.unwrap();
+    let user_by_email = database
+        .get_user_by_email("email@email.com")
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(user.email, user_by_email.email);
 

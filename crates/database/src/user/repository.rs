@@ -13,7 +13,7 @@ pub trait UserRepositoryTrait {
 
     async fn get_user_by_id(&self, id: Uuid) -> AppResult<User>;
 
-    async fn get_user_by_email(&self, email: &str) -> AppResult<User>;
+    async fn get_user_by_email(&self, email: &str) -> AppResult<Option<User>>;
 
     async fn update_user(&self, id: Uuid, name: &str, email: &str) -> AppResult<User>;
 
@@ -46,9 +46,9 @@ impl UserRepositoryTrait for Database {
         Ok(user)
     }
 
-    async fn get_user_by_email(&self, email: &str) -> AppResult<User> {
+    async fn get_user_by_email(&self, email: &str) -> AppResult<Option<User>> {
         let user = sqlx::query_as!(User, "SELECT * FROM users WHERE email = $1", email)
-            .fetch_one(&self.db)
+            .fetch_optional(&self.db)
             .await?;
         Ok(user)
     }
